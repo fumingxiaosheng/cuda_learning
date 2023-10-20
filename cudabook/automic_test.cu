@@ -16,7 +16,7 @@ in atomic,min is 12,time consume is 0.006800
 why the parallel is slower?!!!
 */
 //#define test_atomic
-#define compare_atomic_with_reduction
+//#define compare_atomic_with_reduction
 /* 当每个线程调用atomicMin函数时，会将从共享内存中读取的最小值与当前的值进行比较，然后把较小值写回到对应的共享内存中（P130）
 */
 /*function to see how atomicMin works*/
@@ -75,6 +75,9 @@ __global__ void atomic_reduction(int *A){
 }
 
 int main(){
+    struct cudaDeviceProp device_prop;
+    cudaGetDeviceProperties(&device_prop,0);
+    printf("sharedmemory: %u",device_prop.sharedMemPerBlock);
 #ifdef test_atomic
     test_for_atomic<<<1,10>>>();
 #endif
