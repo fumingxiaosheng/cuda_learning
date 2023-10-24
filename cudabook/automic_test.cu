@@ -76,7 +76,7 @@ __global__ void atomic_reduction(int *A){
 
 int main(){
     struct cudaDeviceProp device_prop;
-    cudaGetDeviceProperties(&device_prop,0);
+    cudaGetDeviceProperties(&device_prop,0); //the second param refers to the num of the device
     printf("sharedmemory: %u",device_prop.sharedMemPerBlock);
 #ifdef test_atomic
     test_for_atomic<<<1,10>>>();

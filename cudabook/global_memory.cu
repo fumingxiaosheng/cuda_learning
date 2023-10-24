@@ -10,13 +10,14 @@ using namespace std;
 
 #define cudaMallocPitchTest
 
+
 int main(){
 #ifdef cudaMallocPitchTest
     //the size of array is 100*60
     //then use cudaMallocPitch to malloc some memory
     float * dev;
     size_t pitch;//debug:the type of pitch must be size_t,there is no requirement for the type of width and height
-    int width =128;
+    int width =128; //every line has width*4个byes,to make it possible to merge alignment,padding some number to the last part of the line
     int height = 100;
     printf("%d\n",sizeof(float));
     cudaMallocPitch(&dev,&pitch,width*sizeof(float),height);

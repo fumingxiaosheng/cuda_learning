@@ -23,6 +23,11 @@ using namespace std;
 #define MIX_COL(a) ( ( (a)& 0x80uL) ? ((( (a)<<1uL) &0xFFuL) ^ 0xBu) : ((a)<<1uL) )
 #define XOR_5(a,b,c,d,e) ( ((a)^(b)) ^ ((c)^(d)) ^ (e))
 
+#define ENCODE_D0(x)  ( (x)<<24uL )
+#define ENCODE_D1(x)  ( (x)<<16uL )
+#define ENCODE_D2(x)  ( (x)<<8uL )
+#define ENCODE_D3(x)  ( (x) )
+
 u8 * s_box_ptr ;//= s_box;//s盒代换 TODO:这个S盒是什么样子的？
 
 uint4 * cipher_block(unsigned char * cipher){
@@ -34,7 +39,7 @@ void key_expansion(){
 }
 
 __host__  void AES_encrypt__4_4_reg(
-    uint4 * const cipher_block,//128bit的密文数据
+    uint4 * const cipher_block,//128bit的密文数据，最终加密得到的结果也会写回到copher_block中
     KEY_T * const cipher_key,//KEY_T是由10个int4的变量组成，每个uint4会保留一个循环密钥
     const u32 round_nums //当前的轮数
     ){
@@ -94,18 +99,15 @@ __host__  void AES_encrypt__4_4_reg(
     a15 ^= EXTRACT_D3(w3);
     round_num ++;
 
-    //step2:开始进行迭代
+    //step3:开始进行迭代
     while(round_num <= round_nums){
         //step2.1:取该轮对应的密钥
-        {
         w0=(*cipher_key)[round_num].w;
         w1=(*cipher_key)[round_num].x;
         w2=(*cipher_key)[round_num].y;
         w3=(*cipher_key)[round_num].z;
-        }
 
         //step2.2:字节代换
-        {
         a0=s_box_ptr[a0];
         a1=s_box_ptr[a1];
         a2=s_box_ptr[a2];
@@ -125,11 +127,10 @@ __host__  void AES_encrypt__4_4_reg(
         a13=s_box_ptr[a13];
         a14=s_box_ptr[a14];
         a15=s_box_ptr[a15];
-        }
 
         u8 tmp0,tmp1,tmp2,tmp3;
-        //step2.3:行移位变换
-        {
+        //step2.3:
+        
         //a0,a4,a8,a12保持不变
         //a1,a5,a9,a13-> a5,a9,a13,a1
         tmp0=a1;
@@ -152,7 +153,6 @@ __host__  void AES_encrypt__4_4_reg(
         a7=tmp0;
         a11=tmp1;
         a15=tmp2;
-        }
 
         //step2.4:在非最后一轮的情况下需要进行列混合变换(具体的实现参照P220的列混合讲解)
         if(round_num!=10){
@@ -194,16 +194,46 @@ __host__  void AES_encrypt__4_4_reg(
             tmp3=XOR_5(b11,a10,a9,b8,a8);
             a8=tmp0,a9=tmp1,a10=tmp2,a11=tmp3;
 
-            tmp0=XOR_5(b8,a11,a10,b9,a9);
-            tmp1=XOR_5(b9,a8,a11,b10,a10);
-            tmp2=XOR_5(b10,a9,a8,b11,a11);
-            tmp3=XOR_5(b11,a10,a9,b8,a8);
-            a8=tmp0,a9=tmp1,a10=tmp2,a11=tmp3;
-
-
-
+            tmp0=XOR_5(b12,a15,a14,b13,a13);
+            tmp1=XOR_5(b13,a12,a15,b14,a14);
+            tmp2=XOR_5(b14,a13,a12,b15,a15);
+            tmp3=XOR_5(b15,a14,a13,b12,a12);
+            a12=tmp0,a13=tmp1,a14=tmp2,a15=tmp3;
 
         }
+
+        //step2.5:与轮密钥异或
+        a0 ^=EXTRACT_D0(w0);
+        a1 ^=EXTRACT_D0(w1);
+        a2 ^=EXTRACT_D0(w2);
+        a3 ^=EXTRACT_D0(w3);
+
+        a4 ^= EXTRACT_D1(w0);
+        a5 ^= EXTRACT_D1(w1);
+        a6 ^= EXTRACT_D1(w2);
+        a7 ^= EXTRACT_D1(w3);
+
+        a8 ^= EXTRACT_D2(w0);
+        a9 ^= EXTRACT_D2(w1);
+        a10 ^= EXTRACT_D2(w2);
+        a11 ^= EXTRACT_D2(w3);
+
+        a12 ^= EXTRACT_D3(w0);
+        a13 ^= EXTRACT_D3(w1);
+        a14 ^= EXTRACT_D3(w2);
+        a15 ^= EXTRACT_D3(w3);
+
+        //step2.6:轮数自增
+        round_num ++;
+    }
+
+    //step4:将迭代得到的结果写回到cipher_block中
+    cipher_block->w=(ENCODE_D0(a0) | ENCODE_D1(a1) | ENCODE_D2(a2) | ENCODE_D3(a3));
+    cipher_block->x=(ENCODE_D0(a4) | ENCODE_D1(a5) | ENCODE_D2(a6) | ENCODE_D3(a7));
+    cipher_block->x=(ENCODE_D0(a8) | ENCODE_D1(a9) | ENCODE_D2(a10) | ENCODE_D3(a11));
+    cipher_block->x=(ENCODE_D0(a12) | ENCODE_D1(a13) | ENCODE_D2(a14) | ENCODE_D3(a15));
+
+    
 }
 int main(){
 
