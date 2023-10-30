@@ -76,6 +76,7 @@ __device__ __inline__ static void ntt_butt(int32_t &a, int32_t &b, const int32_t
 }
 
 // basic bank conflict
+//最基础的ntt实现版本
 __device__ void ntt_inner(int32_t regs[8], int32_t *s_ntt) {
     // level 1
     ntt_butt(regs[0], regs[4], gpu_zetas[1]);
@@ -95,11 +96,11 @@ __device__ void ntt_inner(int32_t regs[8], int32_t *s_ntt) {
     // SMEM exchange
 #pragma unroll
     for (size_t i = 0; i < 8; i++)
-        s_ntt[i * 32 + threadIdx.x] = regs[i];
+        s_ntt[i * 32 + threadIdx.x] = regs[i]; //以32为间隔进行摆放
     __syncwarp();
 #pragma unroll
     for (size_t i = 0; i < 8; i++)
-        regs[i] = s_ntt[(threadIdx.x / 4) * 32 + (threadIdx.x & 3) + i * 4];
+        regs[i] = s_ntt[(threadIdx.x / 4) * 32 + (threadIdx.x & 3) + i * 4]; //每4个线程对应32个系数，因此threadIdx.x/4用于确定位于哪一个数据块中，threadIdx.x & 3定位该线程位于哪一个开头，i*4定位是该线程中的哪一个数
     // level 4
     ntt_butt(regs[0], regs[4], gpu_zetas[8 + threadIdx.x / 4]);
     ntt_butt(regs[1], regs[5], gpu_zetas[8 + threadIdx.x / 4]);
@@ -118,11 +119,11 @@ __device__ void ntt_inner(int32_t regs[8], int32_t *s_ntt) {
     // SMEM exchange
 #pragma unroll
     for (size_t i = 0; i < 8; i++)
-        s_ntt[(threadIdx.x / 4) * 32 + (threadIdx.x & 3) + i * 4] = regs[i];
+        s_ntt[(threadIdx.x / 4) * 32 + (threadIdx.x & 3) + i * 4] = regs[i]; //怎么读出来的，就怎么写回去
     __syncwarp();
 #pragma unroll
     for (size_t i = 0; i < 8; i++)
-        regs[i] = s_ntt[threadIdx.x * 8 + i];
+        regs[i] = s_ntt[threadIdx.x * 8 + i]; //每个线程取8个系数即可
     // level 7
     ntt_butt(regs[0], regs[2], gpu_zetas[64 + threadIdx.x * 2]);
     ntt_butt(regs[1], regs[3], gpu_zetas[64 + threadIdx.x * 2]);
@@ -136,6 +137,7 @@ __device__ void ntt_inner(int32_t regs[8], int32_t *s_ntt) {
 }
 
 // solve bank conflict
+//解决了存储体冲突的ntt版本
 __device__ void ntt_inner_1(int32_t regs[8], int32_t s_ntt[DILITHIUM_N + 32]) {
     // level 1
     ntt_butt(regs[0], regs[4], gpu_zetas[1]);
@@ -152,14 +154,14 @@ __device__ void ntt_inner_1(int32_t regs[8], int32_t s_ntt[DILITHIUM_N + 32]) {
     ntt_butt(regs[2], regs[3], gpu_zetas[5]);
     ntt_butt(regs[4], regs[5], gpu_zetas[6]);
     ntt_butt(regs[6], regs[7], gpu_zetas[7]);
-    // SMEM exchange
+    // SMEM exchange //存储体的冲突仅仅只是发生在共享内存中
 #pragma unroll
     for (size_t i = 0; i < 8; i++)
-        s_ntt[i * 36 + threadIdx.x] = regs[i];
+        s_ntt[i * 36 + threadIdx.x] = regs[i];//这里多填充了4个数，在32个数之后再次填充4给数，此处进行padding
     __syncwarp();
 #pragma unroll
     for (size_t i = 0; i < 8; i++)
-        regs[i] = s_ntt[(threadIdx.x / 4) * 36 + (threadIdx.x & 3) + i * 4];
+        regs[i] = s_ntt[(threadIdx.x / 4) * 36 + (threadIdx.x & 3) + i * 4];//通过除以4来确定是哪个组，i*4对应的是不同的位置
     // level 4
     ntt_butt(regs[0], regs[4], gpu_zetas[8 + threadIdx.x / 4]);
     ntt_butt(regs[1], regs[5], gpu_zetas[8 + threadIdx.x / 4]);
@@ -178,11 +180,11 @@ __device__ void ntt_inner_1(int32_t regs[8], int32_t s_ntt[DILITHIUM_N + 32]) {
     // SMEM exchange
 #pragma unroll
     for (size_t i = 0; i < 8; i++)
-        s_ntt[(threadIdx.x / 4) * 36 + ((threadIdx.x & 3) + i * 4) / 8 + (threadIdx.x & 3) + i * 4] = regs[i];
+        s_ntt[(threadIdx.x / 4) * 36 + ((threadIdx.x & 3) + i * 4) / 8 + (threadIdx.x & 3) + i * 4] = regs[i];//(threadIdx.x / 4) * 36确定位于哪一个36大组中。32个数分成8组，每组d的四个系数代表在同一个i下4个不同线程所处理的系数,使用i*4代表是哪一组，使用(threadIdx.x & 3)来标识是哪一个线程，即(threadIdx.x & 3) + i * 4标识了reg[i]在大组中的坐标。由于此处32个系数的填充由完全的尾部4个填充变为了每8个进行一个填充。因此使用((threadIdx.x & 3) + i * 4)/8来标识当前坐标下已经填充了几个
     __syncwarp();
 #pragma unroll
     for (size_t i = 0; i < 8; i++)
-        regs[i] = s_ntt[threadIdx.x * 9 + i];
+        regs[i] = s_ntt[threadIdx.x * 9 + i];//8个后面padiing一个 位置的变换8->19、16->18
     // level 7
     ntt_butt(regs[0], regs[2], gpu_zetas[64 + threadIdx.x * 2]);
     ntt_butt(regs[1], regs[3], gpu_zetas[64 + threadIdx.x * 2]);
@@ -205,6 +207,8 @@ __device__ __inline__ static int32_t montgomery_multiply_c(int32_t x, const int3
     return t;
 }
 
+//省略了函数的调用
+//对于全局内存的调用可能会被减少，直接把数值作为常量
 __device__ void ntt_inner_unroll(int32_t regs[8], int32_t *s_poly) {
     size_t butt_idx;
     int32_t t;
@@ -212,6 +216,7 @@ __device__ void ntt_inner_unroll(int32_t regs[8], int32_t *s_poly) {
 
     // level 1 128 58728449
     //zetas[1]*b
+    //此处代表了一次蝴蝶变换
     t = regs[4] * 25847 * QINV;
     t = __mulhi(t, DILITHIUM_Q);
     t = __mulhi(regs[4], 25847) - t;
@@ -646,7 +651,7 @@ __global__ void k0_ntt_unroll(int32_t *g_polyvec, size_t g_polyvec_pitch) {//unr
             g_poly[threadIdx.x * 8 + i] = regs[i];
     }
 }
-
+//从字节流中unpack出相应的系数 和全局内存
 __global__ void k0_unpack(int32_t *g_polyvec, size_t g_polyvec_pitch,
                           const uint8_t *g_polyvec_packed, size_t g_polyvec_packed_pitch) {
     for (int k = 0; k < DILITHIUM_K; k++) {
@@ -666,6 +671,7 @@ __global__ void k0_unpack(int32_t *g_polyvec, size_t g_polyvec_pitch,
 }
 
 // kernel fusing
+//把unpack和ntt结合为一个kernel函数中
 __global__ void k1_unpack_fuse_ntt(int32_t *g_polyvec, size_t g_polyvec_pitch,
                                    const uint8_t *g_polyvec_packed, size_t g_polyvec_packed_pitch) {
     __shared__ int32_t s_ntt[DILITHIUM_N];
@@ -697,6 +703,7 @@ __global__ void k1_unpack_fuse_ntt(int32_t *g_polyvec, size_t g_polyvec_pitch,
     }
 }
 
+//把两个循环合并为1个
 // merge two loops into one and use registers to store intermediate poly
 __global__ void k2(int32_t *g_polyvec, size_t g_polyvec_pitch,
                    const uint8_t *g_polyvec_packed, size_t g_polyvec_packed_pitch) {
@@ -834,6 +841,7 @@ int main(void) {
 //        cudaDeviceSynchronize();
 //        timer_Unroll.stop();
 
+        //不将k0_unpack和k0_ntt进行,而是直接进行使用
         timer_k0.start();
         k0_unpack<<<NTESTS, 32>>>(d_polyveck, d_polyveck_pitch, d_polyveck_packed, d_polyveck_packed_pitch);
         k0_ntt<<<NTESTS, 32>>>(d_polyveck, d_polyveck_pitch);

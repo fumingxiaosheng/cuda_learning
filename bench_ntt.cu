@@ -57,15 +57,15 @@ __device__ __forceinline__ int32_t gpu_montgomery_multiply(int32_t x, int32_t y)
 
     asm(
             "{\n\t"
-            " .reg .s32 a_hi, a_lo;\n\t" //.s代表的是signed hi是指high，lo代表的是low
+            " .reg .s32 a_hi, a_lo;\n\t" //.s代表的是signed hi是指high，lo代表的是low//声明了两个type为s32，状态空间为.reg的变量a_hi和a_lo//变量声明需要同时声明状态空间和数据类型
             " mul.hi.s32 a_hi, %1, %2;\n\t" //%1和%2代表x和y两个变量
             " mul.lo.s32 a_lo, %1, %2;\n\t"
             " mul.lo.s32 %0, a_lo, %4;\n\t"
             " mul.hi.s32 %0, %0, %3;\n\t"
             " sub.s32 %0, a_hi, %0;\n\t"
             "}"
-            : "=r"(t) //r代表32bit的指数
-            : "r"(x), "r"(y), "r"(DILITHIUM_Q), "r"(QINV));
+            : "=r"(t) //r代表32bit的指数,对应参数%0
+            : "r"(x), "r"(y), "r"(DILITHIUM_Q), "r"(QINV)); //分别对应参数%1 到 %4
 
     //    int64_t a = (int64_t) x * y;
     //    t = (int64_t) (int32_t) a * QINV;

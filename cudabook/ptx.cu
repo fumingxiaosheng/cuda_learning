@@ -84,7 +84,11 @@ __device__ int cond (int x)
 "d" = .f64 reg
 n代表的是一个立即数操作数，例如asm("add.u32 %0, %0, %1;" : "=r"(x) : "n"(42));
 
+*/
 
+/*
+ptx中各种操作的详细介绍
+https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#integer-arithmetic-instructions
 */
 .entry foo ( .param .b32 N, .param .align 8 .b8 buffer[64]) 
 { 
