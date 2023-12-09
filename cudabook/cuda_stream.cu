@@ -1,4 +1,5 @@
 //from:https://zhuanlan.zhihu.com/p/51402722
+//注意:在考虑使用cuda stream带来的效率提升时，需要从cpu和不同stream的角度，即cpu调用memcpy_async以及启动kernel的开销，具体的执行的时间消耗应该将目光转移到stream上
 //cudaMemcpyAsync:https://blog.csdn.net/Small_Munich/article/details/103494881
 //cuda stream概念原理详解:https://zhuanlan.zhihu.com/p/460278403
 /*
@@ -467,7 +468,7 @@ int main()
 		cudaMemcpyAsync(dev_a1, host_a + i + N, N * sizeof(int), cudaMemcpyHostToDevice, stream1);
 		cudaMemcpyAsync(dev_b1, host_b + i + N, N * sizeof(int), cudaMemcpyHostToDevice, stream1);
 
-        //TODO:没有拷贝完的话，这里会继续进行吗？
+        //TODO:没有拷贝完的话，这里会继续进行吗？->这里应该仅仅只是消耗了启动cpu的开销
 		kernel << <N / 1024, 1024, 0, stream >> > (dev_a, dev_b, dev_c);
 		kernel << <N / 1024, 1024, 0, stream1 >> > (dev_a, dev_b, dev_c1);
 

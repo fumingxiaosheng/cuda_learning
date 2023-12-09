@@ -21,7 +21,7 @@ using namespace nvcuda;
 #define K 16
 #define newType 1
 __global__ void wmma_ker(half *a, half *b, float *c) {
-    printf("this is test\n");
+    printf("this is test\n"); //当使用这个命令nvcc -arch=compute_75 -run .\wrap_primitive.cu -o wrap_primitive时，不会有相应的输出->显卡算力不够
     
     // Declare the fragments
    wmma::fragment<wmma::matrix_a, 16, 16, 16, half, wmma::col_major> a_frag;
@@ -40,7 +40,6 @@ __global__ void wmma_ker(half *a, half *b, float *c) {
 
    // Store the output
    wmma::store_matrix_sync(c, c_frag, 16, wmma::mem_row_major);
-   c[1]=2;
 
 }
 __global__ void hxw(){
